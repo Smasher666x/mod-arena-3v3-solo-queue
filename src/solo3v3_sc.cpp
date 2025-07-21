@@ -78,7 +78,6 @@ bool NpcSolo3v3::OnGossipHello(Player* player, Creature* creature)
         if (!player->InBattlegroundQueueForBattlegroundQueueType((BattlegroundQueueTypeId)BATTLEGROUND_QUEUE_3v3_SOLO))
         {
             AddGossipItemFor(player, GOSSIP_ICON_INTERACT_1, "|TInterface/ICONS/Achievement_Arena_3v3_5:30:30:-18:0|t Queue 3v3soloQ (Rated)\n", GOSSIP_SENDER_MAIN, NPC_3v3_ACTION_JOIN_QUEUE_ARENA_RATED);
-            AddGossipItemFor(player, GOSSIP_ICON_DOT, "|TInterface/ICONS/Achievement_Arena_2v2_7:30:30:-18:0|t Disband Arena team", GOSSIP_SENDER_MAIN, NPC_3v3_ACTION_DISBAND_ARENATEAM, "Are you sure?", 0, false);
         }
 
         AddGossipItemFor(player, GOSSIP_ICON_DOT, "|TInterface/ICONS/INV_Misc_Coin_01:30:30:-18:0|t Show statistics", GOSSIP_SENDER_MAIN, NPC_3v3_ACTION_GET_STATISTICS);
@@ -207,10 +206,7 @@ bool NpcSolo3v3::OnGossipSelect(Player* player, Creature* creature, uint32 /*sen
         }
         case NPC_3v3_ACTION_DISBAND_ARENATEAM:
         {
-            WorldPacket Data;
-            Data << player->GetArenaTeamId(ARENA_SLOT_SOLO_3v3);
-            player->GetSession()->HandleArenaTeamLeaveOpcode(Data);
-            ChatHandler(player->GetSession()).PSendSysMessage("Arena team deleted!");
+            ChatHandler(player->GetSession()).PSendSysMessage("Soloq team cannot be disbanded until the season ends.");
             CloseGossipMenuFor(player);
             return true;
         }
@@ -377,23 +373,15 @@ bool NpcSolo3v3::CreateArenateam(Player* player, Creature* /*creature*/)
         return false;
     }
 
-    // Teamname = playername
-    // if team name exist, we have to choose another name (playername + number)
-    int i = 1;
+    // Team name: PlayerName (SoloqQ)
     std::stringstream teamName;
-    teamName << player->GetName();
+    teamName << player->GetName() << " (SoloqQ)";
 
-    do
+    if (sArenaTeamMgr->GetArenaTeamByName(teamName.str()))
     {
-        if (sArenaTeamMgr->GetArenaTeamByName(teamName.str()) != NULL) // teamname exist, so choose another name
-        {
-            teamName.str(std::string());
-            teamName << player->GetName() << i++;
-        }
-        else
-            break;
+        player->GetSession()->SendArenaTeamCommandResult(ERR_ARENA_TEAM_CREATE_S, player->GetName(), teamName.str().c_str(), ERR_ARENA_TEAM_NAME_EXISTS_S);
+        return false;
     }
-    while (i < 100); // should never happen
 
     // Create arena team
     ArenaTeam* arenaTeam = new ArenaTeam();
